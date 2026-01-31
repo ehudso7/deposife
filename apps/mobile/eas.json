@@ -1,0 +1,68 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "base": {
+      "node": "20.11.0",
+      "pnpm": "8.14.1",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.deposife.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "YOUR-ANON-KEY"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug"
+      },
+      "channel": "development"
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "channel": "preview"
+    },
+    "production": {
+      "extends": "base",
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
+      },
+      "ios": {
+        "buildConfiguration": "Release",
+        "distribution": "app-store"
+      },
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./pc-api-key.json",
+        "track": "production",
+        "releaseStatus": "completed",
+        "rollout": 1.0
+      },
+      "ios": {
+        "appleId": "YOUR-APPLE-ID@example.com",
+        "ascAppId": "YOUR-ASC-APP-ID",
+        "appleTeamId": "YOUR-TEAM-ID"
+      }
+    }
+  }
+}

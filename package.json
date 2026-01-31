@@ -1,0 +1,36 @@
+{
+  "name": "deposife",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Advanced tenant deposit protection platform with legal compliance and dispute resolution",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ehudso7/deposife.git"
+  },
+  "homepage": "https://deposife.com",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "clean": "turbo clean",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
+    "typecheck": "turbo typecheck",
+    "db:migrate": "pnpm -F api db:migrate",
+    "db:seed": "pnpm -F api db:seed",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "husky": "^9.0.10",
+    "prettier": "^3.2.4",
+    "turbo": "^1.11.3",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.14.1"
+}

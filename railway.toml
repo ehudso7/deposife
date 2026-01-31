@@ -1,0 +1,26 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm build --filter=api"
+
+[deploy]
+startCommand = "cd apps/api && pnpm start"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "api"
+port = 4000
+
+[services.api]
+internalPort = 4000
+protocol = "http"
+
+[[services.api.envs]]
+name = "PORT"
+value = "4000"
+
+[[services.api.envs]]
+name = "NODE_ENV"
+value = "production"

@@ -1,0 +1,463 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  TENANT
+  LANDLORD
+  PROPERTY_MANAGER
+  ADMIN
+  DISPUTE_RESOLVER
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  CONDO
+  TOWNHOUSE
+  STUDIO
+}
+
+enum LeaseStatus {
+  DRAFT
+  PENDING_SIGNATURES
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum DepositStatus {
+  PENDING_PAYMENT
+  HELD
+  PROTECTED
+  PENDING_RETURN
+  PARTIALLY_RETURNED
+  RETURNED
+  DISPUTED
+}
+
+enum TransactionType {
+  DEPOSIT
+  PROTECTION_FEE
+  RETURN
+  DEDUCTION
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DisputeReason {
+  DAMAGE
+  CLEANING
+  UNPAID_RENT
+  UNPAID_BILLS
+  MISSING_ITEMS
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  IN_REVIEW
+  AWAITING_EVIDENCE
+  RESOLVED
+  CLOSED
+  ESCALATED
+}
+
+enum EvidenceType {
+  PHOTO
+  VIDEO
+  DOCUMENT
+  INVOICE
+  RECEIPT
+  CORRESPONDENCE
+}
+
+enum DocumentType {
+  LEASE_AGREEMENT
+  INVENTORY
+  INSPECTION_REPORT
+  PROOF_OF_PAYMENT
+  IDENTITY
+  OTHER
+}
+
+enum NotificationType {
+  DEPOSIT_RECEIVED
+  DEPOSIT_PROTECTED
+  DEPOSIT_RETURN_REQUESTED
+  DEPOSIT_RETURNED
+  DISPUTE_RAISED
+  DISPUTE_UPDATE
+  DISPUTE_RESOLVED
+  DOCUMENT_UPLOADED
+  LEASE_SIGNED
+  PAYMENT_DUE
+}
+
+model User {
+  id                String      @id @default(uuid())
+  email             String      @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  role              UserRole
+  phoneNumber       String?
+  streetAddress     String?
+  city              String?
+  state             String?
+  zipCode           String?
+  country           String      @default("US")
+  emailVerified     Boolean     @default(false)
+  emailVerifiedAt   DateTime?
+  twoFactorEnabled  Boolean     @default(false)
+  twoFactorSecret   String?
+  stripeCustomerId  String?
+  profileImageUrl   String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  properties        Property[]  @relation("LandlordProperties")
+  tenantLeases      Lease[]     @relation("TenantLeases")
+  landlordLeases    Lease[]     @relation("LandlordLeases")
+  notifications     Notification[]
+  uploadedDocuments Document[]
+  raisedDisputes    Dispute[]   @relation("DisputeRaisedBy")
+  resolvedDisputes  Dispute[]   @relation("DisputeResolvedBy")
+  evidence          Evidence[]
+  auditLogs         AuditLog[]
+  sessions          Session[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Property {
+  id          String       @id @default(uuid())
+  landlordId  String
+  landlord    User         @relation("LandlordProperties", fields: [landlordId], references: [id])
+
+  // Address
+  street      String
+  city        String
+  state       String
+  zipCode     String
+  country     String       @default("US")
+
+  type        PropertyType
+  bedrooms    Int
+  bathrooms   Float
+  squareFeet  Int?
+  yearBuilt   Int?
+
+  amenities   String[]
+  images      String[]
+
+  description String?
+  monthlyRent Decimal      @db.Money
+
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  leases      Lease[]
+
+  @@index([landlordId])
+  @@index([state])
+}
+
+model Lease {
+  id             String      @id @default(uuid())
+  propertyId     String
+  property       Property    @relation(fields: [propertyId], references: [id])
+  tenantId       String
+  tenant         User        @relation("TenantLeases", fields: [tenantId], references: [id])
+  landlordId     String
+  landlord       User        @relation("LandlordLeases", fields: [landlordId], references: [id])
+
+  startDate      DateTime
+  endDate        DateTime
+  monthlyRent    Decimal     @db.Money
+  depositAmount  Decimal     @db.Money
+
+  status         LeaseStatus
+  terms          String?
+
+  signedByTenant    DateTime?
+  signedByLandlord  DateTime?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  deposit        Deposit?
+  documents      Document[]
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([landlordId])
+  @@index([status])
+}
+
+model Deposit {
+  id                  String        @id @default(uuid())
+  leaseId             String        @unique
+  lease               Lease         @relation(fields: [leaseId], references: [id])
+
+  amount              Decimal       @db.Money
+  currency            String        @default("USD")
+  status              DepositStatus
+
+  // Protection details
+  protectionScheme    String?
+  protectionReference String?
+  protectedAt         DateTime?
+  certificateUrl      String?
+
+  // Bank details
+  bankAccountName     String?
+  bankAccountNumber   String?
+  bankSortCode        String?
+  bankIban            String?
+  bankName            String?
+
+  // Return details
+  returnRequestedAt   DateTime?
+  returnApprovedAt    DateTime?
+  returnedAt          DateTime?
+  returnAmount        Decimal?      @db.Money
+  finalAmount         Decimal?      @db.Money
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  transactions        Transaction[]
+  disputes            Dispute[]
+  deductions          Deduction[]
+
+  @@index([leaseId])
+  @@index([status])
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  depositId   String
+  deposit     Deposit           @relation(fields: [depositId], references: [id])
+
+  type        TransactionType
+  amount      Decimal           @db.Money
+  currency    String            @default("USD")
+  description String
+  reference   String?
+
+  status      TransactionStatus
+
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+
+  processedAt DateTime?
+  failedAt    DateTime?
+  failureReason String?
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([depositId])
+  @@index([type])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+}
+
+model Deduction {
+  id          String   @id @default(uuid())
+  depositId   String
+  deposit     Deposit  @relation(fields: [depositId], references: [id])
+
+  reason      String
+  description String
+  amount      Decimal  @db.Money
+
+  approved    Boolean  @default(false)
+  approvedAt  DateTime?
+  approvedBy  String?
+
+  evidence    String[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([depositId])
+}
+
+model Dispute {
+  id            String        @id @default(uuid())
+  depositId     String
+  deposit       Deposit       @relation(fields: [depositId], references: [id])
+
+  raisedById    String
+  raisedBy      User          @relation("DisputeRaisedBy", fields: [raisedById], references: [id])
+
+  reason        DisputeReason
+  description   String
+  claimedAmount Decimal       @db.Money
+
+  status        DisputeStatus
+
+  // Resolution
+  resolvedById  String?
+  resolvedBy    User?         @relation("DisputeResolvedBy", fields: [resolvedById], references: [id])
+  resolution    String?
+  tenantAmount  Decimal?      @db.Money
+  landlordAmount Decimal?     @db.Money
+  reasoning     String?
+  resolvedAt    DateTime?
+
+  deadline      DateTime?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  evidence      Evidence[]
+  messages      DisputeMessage[]
+
+  @@index([depositId])
+  @@index([raisedById])
+  @@index([status])
+}
+
+model Evidence {
+  id          String       @id @default(uuid())
+  disputeId   String
+  dispute     Dispute      @relation(fields: [disputeId], references: [id])
+
+  uploadedById String
+  uploadedBy  User         @relation(fields: [uploadedById], references: [id])
+
+  type        EvidenceType
+  description String
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+
+  createdAt   DateTime     @default(now())
+
+  @@index([disputeId])
+  @@index([uploadedById])
+}
+
+model DisputeMessage {
+  id         String   @id @default(uuid())
+  disputeId  String
+  dispute    Dispute  @relation(fields: [disputeId], references: [id])
+
+  senderId   String
+  message    String
+
+  isInternal Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+
+  @@index([disputeId])
+  @@index([senderId])
+}
+
+model Document {
+  id          String       @id @default(uuid())
+  leaseId     String?
+  lease       Lease?       @relation(fields: [leaseId], references: [id])
+
+  name        String
+  type        DocumentType
+  url         String
+
+  uploadedById String
+  uploadedBy  User         @relation(fields: [uploadedById], references: [id])
+
+  fileSize    Int
+  mimeType    String
+
+  createdAt   DateTime     @default(now())
+
+  @@index([leaseId])
+  @@index([uploadedById])
+  @@index([type])
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id])
+
+  type       NotificationType
+  title      String
+  message    String
+  data       Json?
+
+  read       Boolean          @default(false)
+  readAt     DateTime?
+
+  createdAt  DateTime         @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([type])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+
+  token        String   @unique
+  refreshToken String   @unique
+
+  ipAddress    String?
+  userAgent    String?
+
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+
+  action     String
+  entity     String
+  entityId   String?
+
+  oldData    Json?
+  newData    Json?
+
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([action])
+}
