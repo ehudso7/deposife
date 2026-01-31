@@ -95,7 +95,7 @@ Before starting, ensure you have:
 
 5. **Configure Custom Domain**
    - Go to Settings → Domains
-   - Add your domain: `tenantdepositshield.com`
+   - Add your domain: `deposife.com`
    - Follow DNS configuration instructions
 
 ### Step 3: Backend API Deployment (Railway)
@@ -174,7 +174,7 @@ Before starting, ensure you have:
 4. **Configure CORS**
    ```json
    {
-     "AllowedOrigins": ["https://tenantdepositshield.com"],
+     "AllowedOrigins": ["https://deposife.com"],
      "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
      "AllowedHeaders": ["*"],
      "MaxAgeSeconds": 3600
@@ -208,7 +208,7 @@ Before starting, ensure you have:
 3. **Configure Webhooks**
    ```bash
    # Webhook endpoint:
-   https://api.tenantdepositshield.com/api/v1/webhooks/stripe
+   https://api.deposife.com/api/v1/webhooks/stripe
 
    # Events to listen:
    - payment_intent.succeeded
@@ -316,18 +316,18 @@ chmod +x scripts/setup-production.sh
 
 1. **Test User Registration**
    ```bash
-   curl -X POST https://api.tenantdepositshield.com/api/v1/auth/register \
+   curl -X POST https://api.deposife.com/api/v1/auth/register \
      -H "Content-Type: application/json" \
      -d '{"email":"test@example.com","password":"Test123!","firstName":"Test","lastName":"User","role":"TENANT"}'
    ```
 
 2. **Test Health Check**
    ```bash
-   curl https://api.tenantdepositshield.com/api/v1/health
+   curl https://api.deposife.com/api/v1/health
    ```
 
 3. **Test Frontend**
-   - Visit https://tenantdepositshield.com
+   - Visit https://deposife.com
    - Check all pages load
    - Test registration/login
    - Test deposit creation flow
@@ -431,9 +431,9 @@ Monthly costs estimate:
 
 ## 📞 Support
 
-- Documentation: [docs.tenantdepositshield.com](https://docs.tenantdepositshield.com)
-- Status Page: [status.tenantdepositshield.com](https://status.tenantdepositshield.com)
-- Support: support@tenantdepositshield.com
+- Documentation: [docs.deposife.com](https://docs.deposife.com)
+- Status Page: [status.deposife.com](https://status.deposife.com)
+- Support: support@deposife.com
 
 ---
 

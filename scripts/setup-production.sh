@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Tenant Deposit Shield - Production Setup Script
+# Deposife - Production Setup Script
 # This script sets up all production services
 
 set -e
 
-echo "🛡️  Tenant Deposit Shield - Production Setup"
+echo "🛡️  Deposife - Production Setup"
 echo "==========================================="
 echo ""
 

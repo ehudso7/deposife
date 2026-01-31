@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🛡️  Tenant Deposit Shield - Setup Script"
+echo "🛡️  Deposife - Setup Script"
 echo "======================================="
 echo ""
 
