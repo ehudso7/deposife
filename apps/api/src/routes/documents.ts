@@ -1,9 +1,10 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate } from '../middleware/auth';
 import { NotFoundError, AuthorizationError } from '../utils/errors';
 
-export const documentsRouter = Router();
+export const documentsRouter: ExpressRouter = Router();
 
 // Get documents for a lease
 documentsRouter.get('/lease/:leaseId',

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -6,7 +7,7 @@ import { leaseSchema, paginationSchema } from '@deposife/shared';
 import { UserRole, LeaseStatus } from '@prisma/client';
 import { NotFoundError, AuthorizationError, ConflictError } from '../utils/errors';
 
-export const leasesRouter = Router();
+export const leasesRouter: ExpressRouter = Router();
 
 // Get all leases
 leasesRouter.get('/',

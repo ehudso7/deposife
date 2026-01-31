@@ -1,11 +1,12 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { paginationSchema } from '@deposife/shared';
 import { NotFoundError, AuthorizationError } from '../utils/errors';
 
-export const transactionsRouter = Router();
+export const transactionsRouter: ExpressRouter = Router();
 
 // Get all transactions
 transactionsRouter.get('/',
@@ -103,8 +104,8 @@ transactionsRouter.get('/:id',
       // Check access permissions
       const hasAccess =
         req.user!.role === 'ADMIN' ||
-        transaction.deposit.lease.tenantId === req.user!.userId ||
-        transaction.deposit.lease.landlordId === req.user!.userId;
+        transaction.deposit?.lease.tenantId === req.user!.userId ||
+        transaction.deposit?.lease.landlordId === req.user!.userId;
 
       if (!hasAccess) {
         throw new AuthorizationError();

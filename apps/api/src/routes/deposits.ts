@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -7,7 +8,7 @@ import { DepositStatus, TransactionStatus, TransactionType } from '@prisma/clien
 import { NotFoundError, AuthorizationError, ConflictError, BusinessLogicError } from '../utils/errors';
 import { getStateLaw, isProtectionRequired, getProtectionDeadline } from '@deposife/state-laws';
 
-export const depositsRouter = Router();
+export const depositsRouter: ExpressRouter = Router();
 
 // Get all deposits
 depositsRouter.get('/',
@@ -339,7 +340,7 @@ depositsRouter.post('/:id/return-request',
       }
 
       // Calculate total deductions
-      const totalDeductions = deductions?.reduce((sum, d) => sum + d.amount, 0) || 0;
+      const totalDeductions = deductions?.reduce((sum: number, d: any) => sum + Number(d.amount), 0) || 0;
 
       if (totalDeductions > Number(deposit.amount)) {
         throw new BusinessLogicError(
@@ -361,7 +362,7 @@ depositsRouter.post('/:id/return-request',
       // Create deduction records
       if (deductions && deductions.length > 0) {
         await prisma.deduction.createMany({
-          data: deductions.map(d => ({
+          data: deductions.map((d: any) => ({
             depositId: id,
             reason: d.reason,
             description: d.reason,

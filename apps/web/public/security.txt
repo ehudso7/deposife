@@ -1,0 +1,19 @@
+# Security Policy
+# Deposife Security Contact Information
+
+Contact: mailto:security@deposife.com
+Expires: 2027-01-31T00:00:00.000Z
+Encryption: https://deposife.com/pgp-key.asc
+Acknowledgments: https://deposife.com/security/acknowledgments
+Preferred-Languages: en
+Canonical: https://deposife.com/.well-known/security.txt
+Policy: https://deposife.com/security-policy
+
+# Bug Bounty Program
+# We value the security community and welcome responsible disclosure
+# Please report vulnerabilities to security@deposife.com
+# Do NOT test on production systems without prior authorization
+
+# Response Time
+# We aim to respond to all security reports within 48 hours
+# Critical vulnerabilities will be addressed immediately

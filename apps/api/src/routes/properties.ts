@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -6,7 +7,7 @@ import { propertySchema, paginationSchema } from '@deposife/shared';
 import { UserRole, PropertyType } from '@prisma/client';
 import { NotFoundError, AuthorizationError } from '../utils/errors';
 
-export const propertiesRouter = Router();
+export const propertiesRouter: ExpressRouter = Router();
 
 // Get all properties
 propertiesRouter.get('/',

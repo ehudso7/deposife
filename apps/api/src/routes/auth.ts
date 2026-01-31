@@ -7,8 +7,10 @@ import { ApiError, ConflictError, NotFoundError } from '../utils/errors';
 import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from '@deposife/shared';
 import { UserRole } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { EmailService } from '../services/email.service';
+import jwt from 'jsonwebtoken';
 
-export const authRouter = Router();
+export const authRouter: Router = Router();
 
 // Register
 authRouter.post('/register',
@@ -65,6 +67,13 @@ authRouter.post('/register',
         req.headers['user-agent']
       );
 
+      // Send verification email
+      await EmailService.sendEmailVerification(
+        user.email,
+        user.id,
+        `${user.firstName} ${user.lastName}`
+      );
+
       // Log registration
       logger.info(`New user registered: ${user.email}`);
 
@@ -73,6 +82,7 @@ authRouter.post('/register',
         data: {
           user,
           ...tokens,
+          message: 'Registration successful. Please check your email to verify your account.',
         },
       });
     } catch (error) {
@@ -242,10 +252,8 @@ authRouter.post('/forgot-password',
         });
       }
 
-      // Generate reset token
-      const resetToken = AuthService.generateResetToken();
-
-      // TODO: Send email with reset link
+      // Send password reset email
+      await EmailService.sendPasswordResetEmail(email, user.id);
 
       logger.info(`Password reset requested for: ${email}`);
 
@@ -266,18 +274,170 @@ authRouter.post('/reset-password',
     try {
       const { token, password } = req.body;
 
-      // Validate reset token
-      const isValid = await AuthService.validateResetToken(token);
-
-      if (!isValid) {
+      // Verify and decode token
+      let decoded: any;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET!);
+      } catch (error) {
         throw new ApiError('Invalid or expired reset token', 400);
       }
 
-      // TODO: Get user ID from token and update password
+      if (decoded.type !== 'password-reset') {
+        throw new ApiError('Invalid token type', 400);
+      }
+
+      // Find user and verify token
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          resetToken: true,
+          resetTokenExpiry: true,
+        },
+      });
+
+      if (!user || user.resetToken !== token) {
+        throw new ApiError('Invalid or expired reset token', 400);
+      }
+
+      if (user.resetTokenExpiry && user.resetTokenExpiry < new Date()) {
+        throw new ApiError('Reset token has expired', 400);
+      }
+
+      // Hash new password
+      const passwordHash = await AuthService.hashPassword(password);
+
+      // Update password and clear reset token
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+
+      logger.info(`Password reset successful for user ID: ${user.id}`);
 
       res.json({
         success: true,
         data: { message: 'Password reset successfully' },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Verify email
+authRouter.post('/verify-email',
+  async (req, res, next) => {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        throw new ApiError('Verification token required', 400);
+      }
+
+      // Verify and decode token
+      let decoded: any;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET!);
+      } catch (error) {
+        throw new ApiError('Invalid or expired verification token', 400);
+      }
+
+      if (decoded.type !== 'email-verification') {
+        throw new ApiError('Invalid token type', 400);
+      }
+
+      // Find user and verify token
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          emailVerified: true,
+          emailVerificationToken: true,
+          emailVerificationExpiry: true,
+        },
+      });
+
+      if (!user || user.emailVerificationToken !== token) {
+        throw new ApiError('Invalid or expired verification token', 400);
+      }
+
+      if (user.emailVerified) {
+        return res.json({
+          success: true,
+          data: { message: 'Email already verified' },
+        });
+      }
+
+      if (user.emailVerificationExpiry && user.emailVerificationExpiry < new Date()) {
+        throw new ApiError('Verification token has expired', 400);
+      }
+
+      // Update user email verification status
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          emailVerificationToken: null,
+          emailVerificationExpiry: null,
+        },
+      });
+
+      logger.info(`Email verified for user: ${user.email}`);
+
+      res.json({
+        success: true,
+        data: { message: 'Email verified successfully' },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Resend verification email
+authRouter.post('/resend-verification',
+  authenticate,
+  async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          emailVerified: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundError('User');
+      }
+
+      if (user.emailVerified) {
+        return res.json({
+          success: true,
+          data: { message: 'Email already verified' },
+        });
+      }
+
+      // Send verification email
+      await EmailService.sendEmailVerification(
+        user.email,
+        user.id,
+        `${user.firstName} ${user.lastName}`
+      );
+
+      res.json({
+        success: true,
+        data: { message: 'Verification email sent' },
       });
     } catch (error) {
       next(error);

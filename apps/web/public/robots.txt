@@ -1,0 +1,66 @@
+# Deposife Robots.txt
+# https://www.deposife.com
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Block sensitive areas
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /.well-known/
+Disallow: /auth/
+Disallow: /settings/
+Disallow: /profile/
+Disallow: /disputes/*/edit
+Disallow: /properties/*/edit
+Disallow: /leases/*/edit
+
+# Block development and staging environments
+Disallow: /dev/
+Disallow: /staging/
+Disallow: /test/
+
+# Allow important assets
+Allow: /images/
+Allow: /assets/
+Allow: /*.js$
+Allow: /*.css$
+
+# Sitemap location
+Sitemap: https://deposife.com/sitemap.xml
+Sitemap: https://www.deposife.com/sitemap.xml
+
+# Crawl-delay for respectful crawling (in seconds)
+Crawl-delay: 1
+
+# Specific rules for major search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 1
+
+# Block bad bots
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /

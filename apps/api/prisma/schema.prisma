@@ -43,10 +43,21 @@ enum DepositStatus {
 
 enum TransactionType {
   DEPOSIT
+  DEPOSIT_COLLECTION
+  DEPOSIT_RETURN
   PROTECTION_FEE
   RETURN
   DEDUCTION
   REFUND
+  SUBSCRIPTION_PAYMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum TransactionStatus {
@@ -107,27 +118,36 @@ enum NotificationType {
 }
 
 model User {
-  id                String      @id @default(uuid())
-  email             String      @unique
-  passwordHash      String
-  firstName         String
-  lastName          String
-  role              UserRole
-  phoneNumber       String?
-  streetAddress     String?
-  city              String?
-  state             String?
-  zipCode           String?
-  country           String      @default("US")
-  emailVerified     Boolean     @default(false)
-  emailVerifiedAt   DateTime?
-  twoFactorEnabled  Boolean     @default(false)
-  twoFactorSecret   String?
-  stripeCustomerId  String?
-  profileImageUrl   String?
-  lastLoginAt       DateTime?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id                      String      @id @default(uuid())
+  email                   String      @unique
+  passwordHash            String
+  firstName               String
+  lastName                String
+  role                    UserRole
+  phoneNumber             String?
+  streetAddress           String?
+  city                    String?
+  state                   String?
+  zipCode                 String?
+  country                 String      @default("US")
+  emailVerified           Boolean     @default(false)
+  emailVerifiedAt         DateTime?
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
+  resetToken              String?
+  resetTokenExpiry        DateTime?
+  twoFactorEnabled        Boolean     @default(false)
+  twoFactorSecret         String?
+  twoFactorCode           String?
+  twoFactorCodeExpiry     DateTime?
+  stripeCustomerId        String?
+  stripeSubscriptionId    String?
+  subscriptionStatus      String?
+  subscriptionEndDate     DateTime?
+  profileImageUrl         String?
+  lastLoginAt             DateTime?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
 
   // Relations
   properties        Property[]  @relation("LandlordProperties")
@@ -235,6 +255,9 @@ model Deposit {
   bankIban            String?
   bankName            String?
 
+  // Stripe details
+  stripePaymentIntentId String?
+
   // Return details
   returnRequestedAt   DateTime?
   returnApprovedAt    DateTime?
@@ -256,8 +279,8 @@ model Deposit {
 
 model Transaction {
   id          String            @id @default(uuid())
-  depositId   String
-  deposit     Deposit           @relation(fields: [depositId], references: [id])
+  depositId   String?
+  deposit     Deposit?          @relation(fields: [depositId], references: [id])
 
   type        TransactionType
   amount      Decimal           @db.Money
@@ -269,6 +292,11 @@ model Transaction {
 
   stripePaymentIntentId String?
   stripeChargeId        String?
+  stripeInvoiceId       String?
+  stripeRefundId        String?
+
+  processingFee Decimal?         @db.Money
+  metadata      Json?
 
   processedAt DateTime?
   failedAt    DateTime?

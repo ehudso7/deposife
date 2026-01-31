@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -6,7 +7,7 @@ import { disputeSchema, evidenceSchema, paginationSchema } from '@deposife/share
 import { DisputeStatus, DisputeReason, DepositStatus, UserRole } from '@prisma/client';
 import { NotFoundError, AuthorizationError, ConflictError } from '../utils/errors';
 
-export const disputesRouter = Router();
+export const disputesRouter: ExpressRouter = Router();
 
 // Get all disputes
 disputesRouter.get('/',

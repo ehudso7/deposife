@@ -1,10 +1,11 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { prisma } from '../db/prisma';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { paginationSchema } from '@deposife/shared';
 
-export const notificationsRouter = Router();
+export const notificationsRouter: ExpressRouter = Router();
 
 // Get user notifications
 notificationsRouter.get('/',
