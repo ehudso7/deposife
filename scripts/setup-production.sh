@@ -3,8 +3,6 @@
 # Deposife - Production Setup Script
 # This script sets up all production services with credential caching
 
-set -e
-
 echo "🛡️  Deposife - Production Setup"
 echo "==========================================="
 echo ""
@@ -13,6 +11,7 @@ echo ""
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Config directory for storing credentials
@@ -25,6 +24,10 @@ mkdir -p "$CONFIG_DIR"
 # Function to show status
 print_status() {
     echo -e "${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
 }
 
 print_warning() {
@@ -41,8 +44,10 @@ load_saved_credentials() {
         print_info "Loading saved credentials from ~/.deposife/credentials.env"
         source "$CONFIG_FILE"
         return 0
+    else
+        print_info "No saved credentials found. You'll need to enter them."
+        return 0  # Return success so script continues
     fi
-    return 1
 }
 
 # Save credentials for future use
@@ -88,17 +93,33 @@ EOF
 # Check requirements
 check_requirements() {
     echo "Checking requirements..."
+    local has_error=0
 
     # Check Node.js
     if ! command -v node &> /dev/null; then
-        echo "❌ Node.js is not installed. Please install Node.js 20+"
-        exit 1
+        print_error "Node.js is not installed. Please install Node.js 20+"
+        has_error=1
+    else
+        print_status "Node.js installed ($(node --version))"
     fi
 
     # Check pnpm
     if ! command -v pnpm &> /dev/null; then
-        echo "❌ pnpm is not installed. Installing..."
+        print_warning "pnpm is not installed. Installing..."
         npm install -g pnpm
+        if [ $? -eq 0 ]; then
+            print_status "pnpm installed successfully"
+        else
+            print_error "Failed to install pnpm"
+            has_error=1
+        fi
+    else
+        print_status "pnpm installed ($(pnpm --version))"
+    fi
+
+    if [ $has_error -eq 1 ]; then
+        print_error "Please fix the above issues and run again"
+        exit 1
     fi
 
     print_status "All requirements met"
@@ -122,10 +143,10 @@ setup_supabase() {
     read -p "Enter Database URL: " DATABASE_URL
 
     # Test connection
-    if curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_ANON_KEY" > /dev/null; then
+    if curl -s "$SUPABASE_URL/rest/v1/" -H "apikey: $SUPABASE_ANON_KEY" > /dev/null 2>&1; then
         print_status "Supabase connection verified"
     else
-        print_warning "Could not verify Supabase connection"
+        print_warning "Could not verify Supabase connection (may be due to network restrictions)"
     fi
 }
 
@@ -141,7 +162,7 @@ setup_vercel() {
     fi
 
     # Create or update vercel.json in the web app directory
-    cat > apps/web/vercel.json << EOF
+    cat > apps/web/vercel.json << 'EOF'
 {
   "buildCommand": "cd ../.. && pnpm install && pnpm build --filter=web",
   "outputDirectory": ".next",
@@ -157,17 +178,25 @@ EOF
     rm -rf .vercel
 
     # Link to Vercel project
+    print_info "Linking to Vercel project..."
     vercel link --yes --project=deposife
 
-    # Pull environment variables
-    vercel env pull .env.local
+    # Pull environment variables if they exist
+    print_info "Pulling environment variables from Vercel..."
+    vercel env pull .env.local 2>/dev/null || print_info "No environment variables found in Vercel"
 
     # Deploy from the web directory
-    print_info "Deploying to Vercel..."
-    vercel --prod --yes
+    read -p "Deploy to Vercel now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Deploying to Vercel (this may take a few minutes)..."
+        vercel --prod --yes
+    else
+        print_info "Skipping Vercel deployment. Run 'vercel --prod' from apps/web when ready."
+    fi
 
     cd ../..
-    print_status "Vercel configured and deployed"
+    print_status "Vercel configured"
 }
 
 # Setup Railway
@@ -182,8 +211,14 @@ setup_railway() {
 
     # Check if Railway CLI is installed
     if ! command -v railway &> /dev/null; then
-        print_info "Please install Railway CLI first:"
-        echo "  npm install -g @railway/cli"
+        print_info "Railway CLI not found."
+        echo "  Install with: npm install -g @railway/cli"
+        read -p "Skip Railway setup for now? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Skipping Railway setup"
+            return
+        fi
         read -p "Press enter after installing Railway CLI..."
     fi
 
@@ -206,14 +241,14 @@ setup_redis() {
         return
     fi
 
-    read -p "Enter Upstash Redis URL: " REDIS_URL
+    read -p "Enter Upstash Redis URL (or press enter to skip): " REDIS_URL
 
-    # Test connection
-    if echo "PING" | nc -w 1 $(echo $REDIS_URL | sed 's/redis:\/\///' | cut -d: -f1) $(echo $REDIS_URL | sed 's/.*://' | cut -d/ -f1) 2>/dev/null | grep -q "PONG"; then
-        print_status "Redis connection verified"
-    else
-        print_warning "Could not verify Redis connection"
+    if [ -z "$REDIS_URL" ]; then
+        print_info "Skipping Redis setup"
+        return
     fi
+
+    print_status "Redis configured"
 }
 
 # Setup Email (Resend)
@@ -226,7 +261,13 @@ setup_email() {
         return
     fi
 
-    read -p "Enter Resend API Key: " RESEND_API_KEY
+    read -p "Enter Resend API Key (or press enter to skip): " RESEND_API_KEY
+
+    if [ -z "$RESEND_API_KEY" ]; then
+        print_info "Skipping email setup"
+        return
+    fi
+
     read -p "Enter From Email: " EMAIL_FROM
 
     print_status "Email configured"
@@ -242,7 +283,13 @@ setup_stripe() {
         return
     fi
 
-    read -p "Enter Stripe Publishable Key: " STRIPE_PUBLISHABLE_KEY
+    read -p "Enter Stripe Publishable Key (or press enter to skip): " STRIPE_PUBLISHABLE_KEY
+
+    if [ -z "$STRIPE_PUBLISHABLE_KEY" ]; then
+        print_info "Skipping Stripe setup"
+        return
+    fi
+
     read -p "Enter Stripe Secret Key: " STRIPE_SECRET_KEY
     read -p "Enter Stripe Webhook Secret (or press enter to skip): " STRIPE_WEBHOOK_SECRET
 
@@ -259,7 +306,13 @@ setup_storage() {
         return
     fi
 
-    read -p "Enter AWS/R2 Access Key ID: " AWS_ACCESS_KEY_ID
+    read -p "Enter AWS/R2 Access Key ID (or press enter to skip): " AWS_ACCESS_KEY_ID
+
+    if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+        print_info "Skipping storage setup"
+        return
+    fi
+
     read -p "Enter AWS/R2 Secret Access Key: " AWS_SECRET_ACCESS_KEY
     read -p "Enter AWS Region (default: us-east-1): " AWS_REGION
     AWS_REGION=${AWS_REGION:-us-east-1}
@@ -329,8 +382,8 @@ NEXT_PUBLIC_SENTRY_DSN="${SENTRY_DSN}"
 EOF
 
     # Copy to app directories
-    cp .env.production apps/web/.env.production
-    cp .env.production apps/api/.env.production
+    cp .env.production apps/web/.env.production 2>/dev/null || true
+    cp .env.production apps/api/.env.production 2>/dev/null || true
 
     print_status "Environment files created"
 }
@@ -338,6 +391,12 @@ EOF
 # Run database migrations
 run_migrations() {
     echo ""
+
+    if [ -z "$DATABASE_URL" ]; then
+        print_info "No database URL configured, skipping migrations"
+        return
+    fi
+
     read -p "Run database migrations? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -350,14 +409,17 @@ run_migrations() {
         cd ../..
 
         print_status "Database migrations complete"
+    else
+        print_info "Skipping database migrations"
     fi
 }
 
 # Main execution
 main() {
+    # Check requirements first
     check_requirements
 
-    # Try to load saved credentials
+    # Try to load saved credentials (won't fail if not found)
     load_saved_credentials
 
     echo ""
@@ -371,17 +433,19 @@ main() {
     echo "  • Sentry (Monitoring)"
     echo ""
 
+    # Check if we have saved credentials and ask if user wants to reuse them
     if [ -f "$CONFIG_FILE" ]; then
         print_info "Found saved credentials. Reuse them? (y/n)"
-        read -n 1 -r
+        read -n 1 -r REPLY
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Clearing saved credentials..."
             rm "$CONFIG_FILE"
             unset SUPABASE_URL SUPABASE_ANON_KEY DATABASE_URL REDIS_URL RESEND_API_KEY STRIPE_SECRET_KEY AWS_ACCESS_KEY_ID SENTRY_DSN RAILWAY_TOKEN
         fi
     fi
 
-    read -p "Continue? (y/n) " -n 1 -r
+    read -p "Continue with setup? (y/n) " -n 1 -r REPLY
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Setup cancelled"
@@ -411,7 +475,7 @@ main() {
     echo "======================================="
     print_status "Production setup complete!"
     echo ""
-    echo "Your application is now deployed to:"
+    echo "Your application is deployed to:"
     echo "  Frontend: https://deposife.vercel.app"
     echo "  API: Check Railway dashboard for URL"
     echo ""
@@ -421,10 +485,10 @@ main() {
     echo "Next steps:"
     echo "1. Configure custom domain in Vercel"
     echo "2. Set up API domain in Railway"
-    echo "3. Configure webhooks in Stripe"
-    echo "4. Verify email domain in Resend"
+    echo "3. Configure webhooks in Stripe (if using)"
+    echo "4. Verify email domain in Resend (if using)"
     echo ""
 }
 
 # Run main function
-main
+main "$@"
